@@ -1,13 +1,11 @@
 import { hot, cold, expectObservable, expectSubscriptions } from '../helpers/marble-testing';
 import { pairwise, take } from 'rxjs/operators';
-import { Subject } from 'rxjs';
+import { Subject, Observable } from 'rxjs';
 import { expect } from 'chai';
-
-declare function asDiagram(arg: string): Function;
 
 /** @test {pairwise} */
 describe('pairwise operator', () => {
-  asDiagram('pairwise')('should group consecutive emissions as arrays of two', () => {
+  it('should group consecutive emissions as arrays of two', () => {
     const e1 =   hot('--a--b-c----d--e---|');
     const expected = '-----u-v----w--x---|';
 
@@ -125,5 +123,24 @@ describe('pairwise operator', () => {
     subject.next('b');
 
     expect(results).to.deep.equal([['a', 'b'], ['b', 'c'], ['c', 'c']]);
+  });
+
+  it('should stop listening to a synchronous observable when unsubscribed', () => {
+    const sideEffects: number[] = [];
+    const synchronousObservable = new Observable<number>(subscriber => {
+      // This will check to see if the subscriber was closed on each loop
+      // when the unsubscribe hits (from the `take`), it should be closed
+      for (let i = 0; !subscriber.closed && i < 10; i++) {
+        sideEffects.push(i);
+        subscriber.next(i);
+      }
+    });
+
+    synchronousObservable.pipe(
+      pairwise(),
+      take(2),
+    ).subscribe(() => { /* noop */ });
+
+    expect(sideEffects).to.deep.equal([0, 1, 2]);
   });
 });

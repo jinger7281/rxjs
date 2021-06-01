@@ -1,9 +1,5 @@
-import { concat as concatStatic } from '../observable/concat';
-import { Observable } from '../Observable';
-import { ObservableInput, OperatorFunction, ObservedValuesFromArray } from '../types';
-
-export function concatWith<T>(): OperatorFunction<T, T>;
-export function concatWith<T, A extends ObservableInput<any>[]>(...otherSources: A): OperatorFunction<T, ObservedValuesFromArray<A> | T>;
+import { ObservableInputTuple, OperatorFunction } from '../types';
+import { concat } from './concat';
 
 /**
  * Emits all of the values from the source observable, then, once it completes, subscribes
@@ -42,7 +38,12 @@ export function concatWith<T, A extends ObservableInput<any>[]>(...otherSources:
  * ```
  *
  * @param otherSources Other observable sources to subscribe to, in sequence, after the original source is complete.
+ * @return A function that returns an Observable that concatenates
+ * subscriptions to the source and provided Observables subscribing to the next
+ * only once the current subscription completes.
  */
-export function concatWith<T, A extends ObservableInput<any>[]>(...otherSources: A): OperatorFunction<T, ObservedValuesFromArray<A> | T> {
-  return (source: Observable<T>) => source.lift.call(concatStatic(source, ...otherSources));
+export function concatWith<T, A extends readonly unknown[]>(
+  ...otherSources: [...ObservableInputTuple<A>]
+): OperatorFunction<T, T | A[number]> {
+  return concat(...otherSources);
 }

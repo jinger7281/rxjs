@@ -1,10 +1,8 @@
 import { expect } from 'chai';
-import { of, EMPTY } from 'rxjs';
-import { bufferWhen, mergeMap, takeWhile } from 'rxjs/operators';
+import { of, EMPTY, Observable } from 'rxjs';
+import { bufferWhen, mergeMap, takeWhile, take } from 'rxjs/operators';
 import { TestScheduler } from 'rxjs/testing';
 import { observableMatcher } from '../helpers/observableMatcher';
-
-declare function asDiagram(arg: string): Function;
 
 /** @test {bufferWhen} */
 describe('bufferWhen operator', () => {
@@ -14,7 +12,7 @@ describe('bufferWhen operator', () => {
     testScheduler = new TestScheduler(observableMatcher);
   });
 
-  asDiagram('bufferWhen')('should emit buffers that close and reopen', () => {
+  it('should emit buffers that close and reopen', () => {
     testScheduler.run(({ hot, cold, expectObservable }) => {
       const e1 = hot('--a--^---b---c---d---e---f---g---------|   ');
       const e2 = cold('    --------------(s|)                    ');
@@ -89,7 +87,7 @@ describe('bufferWhen operator', () => {
     });
   });
 
-  it('should emit buffers using varying empty delayed closings', () => {
+  it('should not emit buffers using varying empty delayed closings', () => {
     testScheduler.run(({ hot, cold, expectObservable, expectSubscriptions }) => {
       const e1 = hot('--a--^---b---c---d---e---f---g---h------|   ');
       const subs = '       ^----------------------------------!   ';
@@ -100,14 +98,12 @@ describe('bufferWhen operator', () => {
       ];
       const closeSubs =  [
         '                  ^--------------!                       ',
-        '                  ---------------^---------!             ',
-        '                  -------------------------^---------!   '
+        '                                                         ',
+        '                                                         ',
       ];
-      const expected = '   ---------------x---------y---------(z|)';
+      const expected = '   -----------------------------------(x|)';
       const values = {
-        x: ['b', 'c', 'd'],
-        y: ['e', 'f', 'g'],
-        z: ['h']
+        x: ['b', 'c', 'd', 'e', 'f', 'g', 'h']
       };
 
       let i = 0;
@@ -361,13 +357,13 @@ describe('bufferWhen operator', () => {
     });
   });
 
-  // bufferWhen is not supposed to handle a factory that returns always empty
+  // bufferWhen is not supposed to handle a factory that returns always sync
   // closing Observables, because doing such would constantly recreate a new
   // buffer in a synchronous infinite loop until the stack overflows. This also
   // happens with buffer in RxJS 4.
-  it('should NOT handle hot inner empty', (done: MochaDone) => {
+  it('should NOT handle synchronous inner', (done) => {
     const source = of(1, 2, 3, 4, 5, 6, 7, 8, 9);
-    const closing = EMPTY;
+    const closing = of(1);
     const TOO_MANY_INVOCATIONS = 30;
 
     source.pipe(

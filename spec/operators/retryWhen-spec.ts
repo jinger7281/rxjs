@@ -1,13 +1,11 @@
 import { expect } from 'chai';
 import { hot, cold, expectObservable, expectSubscriptions } from '../helpers/marble-testing';
-import { retryWhen, map, mergeMap, takeUntil } from 'rxjs/operators';
-import { of, EMPTY } from 'rxjs';
-
-declare function asDiagram(arg: string): Function;
+import { retryWhen, map, mergeMap, takeUntil, take } from 'rxjs/operators';
+import { of, EMPTY, Observable, throwError } from 'rxjs';
 
 /** @test {retryWhen} */
 describe('retryWhen operator', () => {
-  asDiagram('retryWhen')('should handle a source with eventual error using a hot notifier', () => {
+  it('should handle a source with eventual error using a hot notifier', () => {
     const source =  cold('-1--2--#');
     const subs =        ['^      !                     ',
                        '             ^      !        ',
@@ -35,7 +33,7 @@ describe('retryWhen operator', () => {
     expectSubscriptions(source.subscriptions).toBe(subs);
   });
 
-  it('should retry when notified via returned notifier on thrown error', (done: MochaDone) => {
+  it('should retry when notified via returned notifier on thrown error', (done) => {
     let retried = false;
     const expected = [1, 2, 1, 2];
     let i = 0;
@@ -63,7 +61,7 @@ describe('retryWhen operator', () => {
       });
   });
 
-  it('should retry when notified and complete on returned completion', (done: MochaDone) => {
+  it('should retry when notified and complete on returned completion', (done) => {
     const expected = [1, 2, 1, 2];
     of(1, 2, 3).pipe(
       map((n: number) => {
@@ -330,5 +328,45 @@ describe('retryWhen operator', () => {
 
     expectObservable(result).toBe(expected);
     expectSubscriptions(source.subscriptions).toBe(subs);
+  });
+
+  it('should always teardown before starting the next cycle, even when synchronous', () => {
+    const results: any[] = [];
+    const source = new Observable<number>(subscriber => {
+      subscriber.next(1);
+      subscriber.next(2);
+      subscriber.error('bad');
+      return () => {
+        results.push('teardown');
+      }
+    });
+    const subscription = source.pipe(retryWhen(errors$ => errors$.pipe(
+      mergeMap((err, i) => i < 3 ? of(true) : throwError(() => (err)))
+    ))).subscribe({
+      next: value => results.push(value),
+      error: (err) => results.push(err)
+    });
+
+    expect(subscription.closed).to.be.true;
+    expect(results).to.deep.equal([1, 2, 'teardown', 1, 2, 'teardown', 1, 2, 'teardown', 1, 2, 'bad', 'teardown'])
+  });
+
+  it('should stop listening to a synchronous observable when unsubscribed', () => {
+    const sideEffects: number[] = [];
+    const synchronousObservable = new Observable<number>(subscriber => {
+      // This will check to see if the subscriber was closed on each loop
+      // when the unsubscribe hits (from the `take`), it should be closed
+      for (let i = 0; !subscriber.closed && i < 10; i++) {
+        sideEffects.push(i);
+        subscriber.next(i);
+      }
+    });
+
+    synchronousObservable.pipe(
+      retryWhen(() => of(0)),
+      take(3),
+    ).subscribe(() => { /* noop */ });
+
+    expect(sideEffects).to.deep.equal([0, 1, 2]);
   });
 });

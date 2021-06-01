@@ -1,8 +1,6 @@
-import { Observable } from '../Observable';
 import { ReplaySubject } from '../ReplaySubject';
-import { Subscription } from '../Subscription';
 import { MonoTypeOperatorFunction, SchedulerLike } from '../types';
-import { Subscriber } from '../Subscriber';
+import { share } from './share';
 
 export interface ShareReplayConfig {
   bufferSize?: number;
@@ -57,8 +55,6 @@ export function shareReplay<T>(bufferSize?: number, windowTime?: number, schedul
  *
  * ## Example for refCount usage
  * ```ts
- * // Code take from https://blog.angularindepth.com/rxjs-whats-changed-with-sharereplay-65c098843e95
- * // and adapted to showcase the refCount property.
  * import { interval, Observable, defer } from 'rxjs';
  * import { shareReplay, take, tap, finalize } from 'rxjs/operators';
  *
@@ -115,73 +111,33 @@ export function shareReplay<T>(bufferSize?: number, windowTime?: number, schedul
  * @see {@link share}
  * @see {@link publishReplay}
  *
- * @param {Number} [bufferSize=Number.POSITIVE_INFINITY] Maximum element count of the replay buffer.
- * @param {Number} [windowTime=Number.POSITIVE_INFINITY] Maximum time length of the replay buffer in milliseconds.
+ * @param {Number} [bufferSize=Infinity] Maximum element count of the replay buffer.
+ * @param {Number} [windowTime=Infinity] Maximum time length of the replay buffer in milliseconds.
  * @param {Scheduler} [scheduler] Scheduler where connected observers within the selector function
  * will be invoked on.
- * @return {Observable} An observable sequence that contains the elements of a sequence produced
- * by multicasting the source sequence within a selector function.
- * @method shareReplay
- * @owner Observable
+ * @return A function that returns an Observable sequence that contains the
+ * elements of a sequence produced by multicasting the source sequence within a
+ * selector function.
  */
 export function shareReplay<T>(
   configOrBufferSize?: ShareReplayConfig | number,
   windowTime?: number,
   scheduler?: SchedulerLike
 ): MonoTypeOperatorFunction<T> {
-  let config: ShareReplayConfig;
+  let bufferSize: number;
+  let refCount = false;
   if (configOrBufferSize && typeof configOrBufferSize === 'object') {
-    config = configOrBufferSize as ShareReplayConfig;
+    bufferSize = configOrBufferSize.bufferSize ?? Infinity;
+    windowTime = configOrBufferSize.windowTime ?? Infinity;
+    refCount = !!configOrBufferSize.refCount;
+    scheduler = configOrBufferSize.scheduler;
   } else {
-    config = {
-      bufferSize: configOrBufferSize as number | undefined,
-      windowTime,
-      refCount: false,
-      scheduler
-    };
+    bufferSize = configOrBufferSize ?? Infinity;
   }
-  return (source: Observable<T>) => source.lift(shareReplayOperator(config));
-}
-
-function shareReplayOperator<T>({
-  bufferSize = Number.POSITIVE_INFINITY,
-  windowTime = Number.POSITIVE_INFINITY,
-  refCount: useRefCount,
-  scheduler
-}: ShareReplayConfig) {
-  let subject: ReplaySubject<T> | undefined;
-  let refCount = 0;
-  let subscription: Subscription | undefined;
-  let hasError = false;
-  let isComplete = false;
-
-  return function shareReplayOperation(this: Subscriber<T>, source: Observable<T>) {
-    refCount++;
-    if (!subject || hasError) {
-      hasError = false;
-      subject = new ReplaySubject<T>(bufferSize, windowTime, scheduler);
-      subscription = source.subscribe({
-        next(value) { subject.next(value); },
-        error(err) {
-          hasError = true;
-          subject.error(err);
-        },
-        complete() {
-          isComplete = true;
-          subject.complete();
-        },
-      });
-    }
-
-    const innerSub = subject.subscribe(this);
-    this.add(() => {
-      refCount--;
-      innerSub.unsubscribe();
-      if (subscription && !isComplete && useRefCount && refCount === 0) {
-        subscription.unsubscribe();
-        subscription = undefined;
-        subject = undefined;
-      }
-    });
-  };
+  return share<T>({
+    connector: () => new ReplaySubject(bufferSize, windowTime, scheduler),
+    resetOnError: true,
+    resetOnComplete: false,
+    resetOnRefCountZero: refCount
+  });
 }

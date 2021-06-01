@@ -4,8 +4,6 @@ import { bufferToggle, mergeMap, mapTo } from 'rxjs/operators';
 import { TestScheduler } from 'rxjs/testing';
 import { observableMatcher } from '../helpers/observableMatcher';
 
-declare function asDiagram(arg: string): Function;
-
 /** @test {bufferToggle} */
 describe('bufferToggle operator', () => {
   let testScheduler: TestScheduler;
@@ -14,7 +12,7 @@ describe('bufferToggle operator', () => {
     testScheduler = new TestScheduler(observableMatcher);
   });
 
-  asDiagram('bufferToggle')('should emit buffers using hot openings and hot closings', () => {
+  it('should emit buffers using hot openings and hot closings', () => {
     testScheduler.run(({ hot, expectObservable }) => {
       const e1 = hot('  ---a---b---c---d---e---f---g---|');
       const e2 = hot('  --o------------------o---------|');
@@ -60,20 +58,20 @@ describe('bufferToggle operator', () => {
 
   it('should emit buffers using varying cold closings', () => {
     testScheduler.run(({ hot, cold, expectObservable, expectSubscriptions }) => {
-      const e1 = hot('--a--^---b---c---d---e---f---g---h------|    ');
-      const e2 = cold('    --x-----------y--------z---|            ');
-      const subs = '       ^----------------------------------!    ';
+      const e1 = hot('--a--^---b---c---d---e---f---g---h------|      ');
+      const e2 = cold('    --x-----------y--------z---|              ');
+      const subs = '       ^----------------------------------!      ';
       const closings = [
-        cold('             ---------------s--|                     '),
-        cold('                         ----(s|)                    '),
-        cold('                                  ---------------(s|)')
+        cold('               ---------------s--|                     '),
+        cold('                           ----(s|)                    '),
+        cold('                                    ---------------(s|)')
       ];
       const closeSubs = [
-        '                 --^--------------!                       ',
-        '                 --------------^---!                      ',
-        '                 -----------------------^-----------!     '
+        '                 --^--------------!                         ',
+        '                 --------------^---!                        ',
+        '                 -----------------------^-----------!       '
       ];
-      const expected =    '-----------------ij----------------(k|) ';
+      const expected = '  -----------------ij----------------(k|)    ';
       const values = {
         i: ['b', 'c', 'd', 'e'],
         j: ['e'],
@@ -102,11 +100,11 @@ describe('bufferToggle operator', () => {
           sub: '           --^--------------!                     '
         },
         {
-          obs: hot('  -----3----4-------(s|)                      '),
+          obs: hot('       -----3----4-------(s|)                 '),
           sub: '           --------------^---!                    '
         },
         {
-          obs: hot('  -------3----4-------5----------------s|     '),
+          obs: hot('       -------3----4-------5----------------s|'),
           sub: '           -----------------------^-----------!   '
         }
       ];
@@ -131,18 +129,18 @@ describe('bufferToggle operator', () => {
 
   it('should emit buffers using varying empty delayed closings', () => {
     testScheduler.run(({ hot, cold, expectObservable, expectSubscriptions }) => {
-      const e1 = hot('--a--^---b---c---d---e---f---g---h------|   ');
-      const e2 = cold('    --x-----------y--------z---|           ');
-      const subs = '       ^----------------------------------!   ';
+      const e1 = hot('--a--^---b---c---d---e---f---g---h------|     ');
+      const e2 = cold('    --x-----------y--------z---|             ');
+      const subs = '       ^----------------------------------!     ';
       const closings = [
-        cold('             ---------------|                       '),
-        cold('                         ----|                      '),
-        cold('                                  ---------------|  ')
+        cold('               ---------------|                       '),
+        cold('                           ----|                      '),
+        cold('                                    ---------------|  ')
       ];
-      const expected = '   -----------------ij----------------(k|)';
+      const expected = '   -----------------------------------(ijk|)';
       const values = {
-        i: ['b', 'c', 'd', 'e'],
-        j: ['e'],
+        i: ['b', 'c', 'd', 'e', 'f', 'g', 'h'],
+        j: ['e', 'f', 'g', 'h'],
         k: ['g', 'h']
       };
 
@@ -160,9 +158,9 @@ describe('bufferToggle operator', () => {
       const subs = '       ^---------!                               ';
       const e2 = cold('    --x-----------y--------z---|              ');
       const closings = [
-        cold('             ---------------s--|                       '),
-        cold('                         ----(s|)                      '),
-        cold('                                  ---------------(s|)  ')
+        cold('               ---------------s--|                     '),
+        cold('                           ----(s|)                    '),
+        cold('                                    ---------------(s|)')
       ];
       const csub0 = '      --^-------!                               ';
       const expected = '   -----------                               ';
@@ -184,16 +182,16 @@ describe('bufferToggle operator', () => {
 
   it('should not break unsubscription chains when result is unsubscribed explicitly', () => {
     testScheduler.run(({ hot, cold, expectObservable, expectSubscriptions }) => {
-      const e1 = hot('--a--^---b---c---d---e---f---g---h------|    ');
-      const subs = '       ^-----------------!                     ';
-      const e2 = cold('    --x-----------y--------z---|            ');
+      const e1 = hot('--a--^---b---c---d---e---f---g---h------|      ');
+      const subs = '       ^-----------------!                       ';
+      const e2 = cold('    --x-----------y--------z---|              ');
       const closings = [
-        cold('             ---------------s--|                     '),
-        cold('                         ----(s|)                    '),
-        cold('                                  ---------------(s|)')
+        cold('               ---------------s--|                     '),
+        cold('                           ----(s|)                    '),
+        cold('                                    ---------------(s|)')
       ];
-      const expected = '   -----------------i-                     ';
-      const unsub = '      ------------------!                     ';
+      const expected = '   -----------------i-                       ';
+      const unsub = '      ------------------!                       ';
       const values = {
         i: ['b', 'c', 'd', 'e']
       };
@@ -212,16 +210,16 @@ describe('bufferToggle operator', () => {
 
   it('should propagate error thrown from closingSelector', () => {
     testScheduler.run(({ hot, cold, expectObservable, expectSubscriptions }) => {
-      const e1 = hot('--a--^---b---c---d---e---f---g---h------|    ');
-      const e2 = cold('    --x-----------y--------z---|            ');
-      const subs = '       ^-------------!                         ';
+      const e1 = hot('--a--^---b---c---d---e---f---g---h------|      ');
+      const e2 = cold('    --x-----------y--------z---|              ');
+      const subs = '       ^-------------!                           ';
       const closings = [
-        cold('             ---------------s--|                     '),
-        cold('                         ----(s|)                    '),
-        cold('                                  ---------------(s|)')
+        cold('               ---------------s--|                     '),
+        cold('                           ----(s|)                    '),
+        cold('                                    ---------------(s|)')
       ];
-      const closeSubs0 =  '--^-----------!                         ';
-      const expected =    '--------------#                         ';
+      const closeSubs0 = ' --^-----------!                           ';
+      const expected = '   --------------#                           ';
 
       let i = 0;
       const result = e1.pipe(
@@ -247,10 +245,10 @@ describe('bufferToggle operator', () => {
       const e2 = cold('    --x-----------y--------z---|        ');
       const subs = '       ^-------------!                     ';
       const closings = [
-        cold('             ---------------s--|                 '),
-        cold('                         #                       ')
+        cold('               ---------------s--|               '),
+        cold('                           #                     ')
       ];
-      const closeSubs =  [
+      const closeSubs = [
         '                  --^-----------!                     ',
         '                  --------------(^!)                  '
       ];
@@ -272,8 +270,8 @@ describe('bufferToggle operator', () => {
       const e2 = cold('    --x-----------y--------z---|        ');
       const subs = '       ^------------------!                ';
       const closings = [
-        cold('             ---------------s--|                 '),
-        cold('                         -----#                  ')
+        cold('               ---------------s--|               '),
+        cold('                           -----#                ')
       ];
       const closeSubs = [
         '                  --^--------------!                  ',
@@ -300,10 +298,10 @@ describe('bufferToggle operator', () => {
       const e2 = cold('    --x-----------y--------z---|');
       const subs = '       ^------------------!        ';
       const closings = [
-        cold('             ---------------s--|         '),
-        cold('                         -------s|       ')
+        cold('               ---------------s--|       '),
+        cold('                           -------s|     ')
       ];
-      const closeSubs =  [
+      const closeSubs = [
         '                  --^--------------!          ',
         '                  --------------^----!        '
       ];
@@ -355,6 +353,10 @@ describe('bufferToggle operator', () => {
       const e1 = hot('  -');
       const e2 = cold(' --o-----o------o-----o---o-----|');
       const e3 = cold('   --c-|');
+      //                        --c-|
+      //                               --c-|
+      //                                     --c-|
+      //                                         --c-|
       const unsub = '   --------------------------------------------!';
       const subs = '    ^-------------------------------------------!';
       const expected = '----x-----x------x-----x---x-----------------';
@@ -414,7 +416,7 @@ describe('bufferToggle operator', () => {
     });
   });
 
-  it('should accept openings resolved promise', (done: MochaDone) => {
+  it('should accept openings resolved promise', (done) => {
     const e1 = concat(
       timer(10).pipe(mapTo(1)),
       timer(100).pipe(mapTo(2)),
@@ -438,7 +440,7 @@ describe('bufferToggle operator', () => {
     });
   });
 
-  it('should accept openings rejected promise', (done: MochaDone) => {
+  it('should accept openings rejected promise', (done) => {
     const e1 = concat(of(1),
       timer(10).pipe(mapTo(2)),
       timer(10).pipe(mapTo(3)),
@@ -461,7 +463,7 @@ describe('bufferToggle operator', () => {
     });
   });
 
-  it('should accept closing selector that returns a resolved promise', (done: MochaDone) => {
+  it('should accept closing selector that returns a resolved promise', (done) => {
     const e1 = concat(of(1),
       timer(10).pipe(mapTo(2)),
       timer(10).pipe(mapTo(3)),
@@ -480,7 +482,7 @@ describe('bufferToggle operator', () => {
       });
   });
 
-  it('should accept closing selector that returns a rejected promise', (done: MochaDone) => {
+  it('should accept closing selector that returns a rejected promise', (done) => {
     const e1 = concat(of(1),
       timer(10).pipe(mapTo(2)),
       timer(10).pipe(mapTo(3)),
@@ -502,14 +504,19 @@ describe('bufferToggle operator', () => {
 
   it('should handle empty closing observable', () => {
     testScheduler.run(({ hot, cold, expectObservable, expectSubscriptions }) => {
-      const e1 = hot('--a--^---b---c---d---e---f---g---h------|');
-      const subs = '       ^----------------------------------!';
-      const e2 = cold('    --x-----------y--------z---|        ');
-      const expected = '   --l-----------m--------n-----------|';
+      const e1 = hot('--a--^---b---c---d---e---f---g---h------|     ');
+      const subs = '       ^----------------------------------!     ';
+      const e2 = cold('    --x-----------y--------z---|             ');
+      const expected = '   -----------------------------------(ijk|)';
+      const values = {
+        i: ['b', 'c', 'd', 'e', 'f', 'g', 'h'],
+        j: ['e', 'f', 'g', 'h'],
+        k: ['g', 'h']
+      };
 
       const result = e1.pipe(bufferToggle(e2, () => EMPTY));
 
-      expectObservable(result).toBe(expected, {l: [], m: [], n: []});
+      expectObservable(result).toBe(expected, values);
       expectSubscriptions(e1.subscriptions).toBe(subs);
     });
   });

@@ -1,10 +1,8 @@
 import { expect } from 'chai';
-import { Subject, of } from 'rxjs';
-import { bufferCount, mergeMap } from 'rxjs/operators';
+import { Subject, of, Observable } from 'rxjs';
+import { bufferCount, mergeMap, take } from 'rxjs/operators';
 import { TestScheduler } from 'rxjs/testing';
 import { observableMatcher } from '../helpers/observableMatcher';
-
-declare function asDiagram(arg: string): Function;
 
 /** @test {bufferCount} */
 describe('bufferCount operator', () => {
@@ -14,7 +12,7 @@ describe('bufferCount operator', () => {
     testScheduler = new TestScheduler(observableMatcher);
   });
 
-  asDiagram('bufferCount(3,2)')('should emit buffers at intervals', () => {
+  it('should emit buffers at intervals', () => {
     testScheduler.run(({ hot, expectObservable }) => {
       const values = {
         v: ['a', 'b', 'c'],
@@ -45,7 +43,7 @@ describe('bufferCount operator', () => {
   });
 
   it('should buffer properly (issue #2062)', () => {
-    const item$ = new Subject();
+    const item$ = new Subject<number>();
     const results: any[] = [];
     item$.pipe(
       bufferCount(3, 1)
@@ -164,5 +162,24 @@ describe('bufferCount operator', () => {
       expectObservable(e1.pipe(bufferCount(2, 3))).toBe(expected, values);
       expectSubscriptions(e1.subscriptions).toBe(e1subs);
     });
+  });
+
+  it('should stop listening to a synchronous observable when unsubscribed', () => {
+    const sideEffects: number[] = [];
+    const synchronousObservable = new Observable(subscriber => {
+      // This will check to see if the subscriber was closed on each loop
+      // when the unsubscribe hits (from the `take`), it should be closed
+      for (let i = 0; !subscriber.closed && i < 10; i++) {
+        sideEffects.push(i);
+        subscriber.next(i);
+      }
+    });
+
+    synchronousObservable.pipe(
+      bufferCount(1),
+      take(3),
+    ).subscribe(() => { /* noop */ });
+
+    expect(sideEffects).to.deep.equal([0, 1, 2]);
   });
 });
