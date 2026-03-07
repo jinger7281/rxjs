@@ -4,25 +4,27 @@ on:
   pull_request:
     types: ['opened', 'reopened', 'synchronize']
 
+permissions:
+  contents: read
+
 jobs:
   build:
-
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node: [ '14' ]
+        node: ['20']
 
     name: ts@latest
 
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-node@v1
-      with:
-        node-version: ${{ matrix.node }}
-    - name: build
-      run: |
-        npm install -g npm@latest
-        npm ci
-        npm install --no-save typescript@latest tslib@latest @types/node@latest
-        npm run compile
+      - uses: actions/checkout@v4
 
+      - name: Install Dependencies
+        uses: ./.github/actions/install-dependencies
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: build
+        run: |
+          yarn workspace rxjs add typescript@latest @types/node@latest --peer --no-save
+          yarn nx compile rxjs
